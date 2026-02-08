@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, createContext } from 'react';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import Projects from './pages/Projects';
 import RedirectSim from './pages/RedirectSim';
-import Login from './pages/Login';
 import OutcomePage from './pages/LandingPages';
 import { Client, Project, Notification, NotificationType } from './types';
 import { MOCK_CLIENTS, MOCK_PROJECTS } from './constants';
@@ -17,10 +16,6 @@ interface ToastContextType {
 export const ToastContext = createContext<ToastContextType | null>(null);
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('oi_auth') === 'true';
-  });
-
   const [clients, setClients] = useState<Client[]>(() => {
     const saved = localStorage.getItem('oi_clients');
     return saved ? JSON.parse(saved) : MOCK_CLIENTS;
@@ -49,15 +44,11 @@ const App: React.FC = () => {
     localStorage.setItem('oi_projects', JSON.stringify(projects));
   }, [projects]);
 
-  const handleLogin = (status: boolean) => {
-    setIsAuthenticated(status);
-    localStorage.setItem('oi_auth', status.toString());
-  };
-
   return (
     <ToastContext.Provider value={{ notify }}>
       <Router>
         <div className="relative">
+          {/* Global Notifications */}
           <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
             {notifications.map(n => (
               <div
@@ -72,29 +63,24 @@ const App: React.FC = () => {
           </div>
 
           <Routes>
-            {/* Public Auth Route */}
-            <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />
-            } />
-
             {/* Public Outcome / Landing Pages */}
             <Route path="/complete" element={<OutcomePage type="complete" />} />
             <Route path="/terminate" element={<OutcomePage type="terminate" />} />
             <Route path="/quotefull" element={<OutcomePage type="quotefull" />} />
             <Route path="/r/:projectId" element={<RedirectSim projects={projects} />} />
             
-            {/* Protected Admin Routes */}
+            {/* Admin Routes wrapped in Layout */}
             <Route path="/*" element={
-              !isAuthenticated ? <Navigate to="/login" replace /> : (
-                <Layout onLogout={() => handleLogin(false)}>
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/dashboard" element={<Dashboard clients={clients} projects={projects} />} />
-                    <Route path="/clients" element={<Clients clients={clients} setClients={setClients} />} />
-                    <Route path="/projects" element={<Projects clients={clients} projects={projects} setProjects={setProjects} />} />
-                  </Routes>
-                </Layout>
-              )
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard clients={clients} projects={projects} />} />
+                  <Route path="/clients" element={<Clients clients={clients} setClients={setClients} />} />
+                  <Route path="/projects" element={<Projects clients={clients} projects={projects} setProjects={setProjects} />} />
+                  {/* Catch-all for undefined admin paths */}
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </Layout>
             } />
           </Routes>
         </div>
